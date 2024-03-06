@@ -1,0 +1,2 @@
+scrapy startproject url_scraper
+scrapy crawl link_downloader
