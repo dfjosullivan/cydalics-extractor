@@ -73,66 +73,6 @@ class LinkDownloaderSpider(scrapy.Spider):
                     meta={'file_type': file_type, 'depth': depth, 'original_url': url}
                 )
 
-    def parse_html(self, response):
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        def extract_content(element):
-            if element.name == 'p':
-                return element.get_text(strip=True)
-            else:
-                d_children = list(element.children)
-                # Recursive call for nested headings
-                elements = []
-                for child in element.children:
-                    if child.name in ['main']:
-                        return extract_content(child)
-
-                headers = False
-                paragraphs = False
-                for child in element.children:
-                    if child.name in ['h1', 'h2', 'h3']:
-                        headers = True
-                    if child.name in ['p']:
-                        paragraphs = True
-
-                if paragraphs and not headers:
-                    for child in element.children:
-                        if child.name in ['p']:
-                            child_contents = extract_content(child)
-                            elements.append(child_contents)
-                if not paragraphs and headers:
-                    for child in element.children:
-                        if child.name in ['h1', 'h2', 'h3']:
-                            name = child.text.strip()
-                            contents = extract_content(child)
-                            elements[name] = contents
-                if paragraphs and headers:
-                    for child in element.children:
-                        if child.name in ['h1', 'h2', 'h3']:
-                            name = child.text.strip()
-                            contents = extract_content(child)
-                            elements[name] = contents
-                    all_para= []
-                    for child in element.children:
-                        if child.name in ['p']:
-                            contents = extract_content(child)
-                            all_para.append(contents)
-                    elements["paragraph"] = all_para
-
-                if len(elements) == 0:
-                    return []
-
-                return {
-                    element.name: elements
-                }
-
-        data = {
-            'url': response.url,
-            'content': extract_content(soup.body)  # Start from the <body> tag
-        }
-
-        #yield data
-
     def parse_html2(self, response):
         soup = BeautifulSoup(response.text, 'html.parser')
 
