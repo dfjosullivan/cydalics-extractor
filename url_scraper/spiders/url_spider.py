@@ -199,7 +199,7 @@ class LinkDownloaderSpider(scrapy.Spider):
                            reason):
         try:
             file_folder = self.get_file_folder()
-            filename = file_folder.joinpath("downloaded.csv")
+            filename = file_folder.joinpath("skipped.csv")
             new_row = [current_url, context_url, file_type, reason]
 
             with open(filename, 'a', newline='') as csvfile:
