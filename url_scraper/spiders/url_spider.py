@@ -76,22 +76,6 @@ class LinkDownloaderSpider(scrapy.Spider):
     def parse_html2(self, response):
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        def indent(type):
-            if type == "h1":
-                return " "
-            if type == "h2":
-                return "    "
-            if type == "h3":
-                return "        "
-            if type == "h4":
-                return "        "
-            if type == "h5":
-                return "        "
-            if type == "h6":
-                return "        "
-            if type == "p":
-                return "        "
-
         def build_nested_dict(items, parent_key='root', result=None):
             if result is None:
                 result = {}
