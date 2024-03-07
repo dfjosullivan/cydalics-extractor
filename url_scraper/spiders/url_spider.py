@@ -1,6 +1,7 @@
 import logging
 import re
 import shutil
+import urllib
 from pathlib import Path
 
 import scrapy
@@ -13,6 +14,8 @@ class LinkDownloaderSpider(scrapy.Spider):
     name = 'link_downloader'
     allowed_domains = []
     logger = logging.getLogger()
+    # Usually too much data
+    blacklist_search = ["https://arxiv.org/"]
 
     def extract_domains(self, urls):
         domains = set()
@@ -127,8 +130,22 @@ class LinkDownloaderSpider(scrapy.Spider):
             if child.name in ['main']:
                 content = extract_content(child)
                 return content
+            if child.name in ['header']:
+                content = extract_content(child)
+                return content
 
-         # Handle paragraphs without a preceding header
+        return []
+
+    def is_url_in_list(self, url):
+        url_parts = urllib.parse.urlparse(url)
+        normalized_url = url_parts.netloc + url_parts.path  # Combine domain and path
+
+        for existing_url in self.blacklist_search:
+            existing_parts = urllib.parse.urlparse(existing_url)
+            normalized_existing = existing_parts.netloc + existing_parts.path
+            if normalized_url == normalized_existing:
+                return True
+        return False
 
     def url_to_filename(self, url):
         try:
@@ -218,9 +235,15 @@ class LinkDownloaderSpider(scrapy.Spider):
                 self.logger.info("Skipping " + current_url + " not valid ")
                 return
 
-            content = {}
-            content["content"] = self.parse_html2(response)
+            html_content = self.parse_html2(response)
 
+            if len(html_content) == 0:
+                self.update_url_skipped(current_url, file_type, current_url, "No html content ")
+                self.logger.info("Skipping " + current_url + " no data ")
+                return
+
+            content = {}
+            content["content"] = html_content
             content["file_type"] = file_type
             content["url"] = current_url
             # Save the PDF file
@@ -266,6 +289,12 @@ class LinkDownloaderSpider(scrapy.Spider):
                     new_file_type = "PDF"
                 else:
                     new_file_type = "HTML"
+
+                # Exception to explore
+                if self.is_url_in_list(link):
+                    self.logger.info("Did not add (blacklist) " + link)
+                    self.update_url_skipped(link, file_type, current_url, "Blacklist URL")
+                    continue
 
                 if urlparse(link).netloc == '' or urlparse(link).netloc in self.allowed_domains:
                     self.logger.info("Added " + link)
