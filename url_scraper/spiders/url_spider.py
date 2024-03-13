@@ -299,6 +299,9 @@ class LinkDownloaderSpider(scrapy.Spider):
         file_type = response.meta['file_type']
         depth = response.meta['depth']
         current_url = response.url
+        depth = response.meta.get('depth', 0)  # Default to 0 if not present
+        self.logger.info(f"Current depth: {depth}")
+
 
         self.logger.info("Processing " + current_url)
 
@@ -314,6 +317,8 @@ class LinkDownloaderSpider(scrapy.Spider):
 
             # Follow links within the same domain only, respecting the depth limit
             soup = BeautifulSoup(response.text, 'html.parser')
+            if depth > 1:
+                return
             for a in soup.find_all('a', href=True):
                 link = a['href']
                 # Check if the link is within the same domain
