@@ -106,8 +106,7 @@ class LinkDownloaderSpider(scrapy.Spider):
                 for element in soup.body.find_all(recursive=False):
                     if len(element.get_text(strip=True)) > 50:
                         extracted_elements.append(element.name)
-                        print(f"Found a long element: {element.name}")
-                        #print(element.get_text(strip=True))
+
 
                 for element in response.find_all(extracted_elements, recursive=True):
                     if element.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
@@ -220,8 +219,13 @@ class LinkDownloaderSpider(scrapy.Spider):
     def save_pdf(self,
                  response):
         try:
+            now = datetime.now()
+
+            # Format the datetime as "YYMMDD-HHMMSS"
+            formatted_string = now.strftime("%y%m%d-%H%M%S") + "-"
+
             file_folder = self.get_file_folder()
-            filename = response.url.split('/')[-1]
+            filename = formatted_string + response.url.split('/')[-1]
             filename = file_folder.joinpath(filename)
             with open(str(filename), 'wb') as f:
                 f.write(response.body)
@@ -276,7 +280,12 @@ class LinkDownloaderSpider(scrapy.Spider):
             # Save the PDF file
             file_folder = self.get_file_folder()
 
-            filename = file_folder.joinpath(self.url_to_filename(current_url))
+            now = datetime.now()
+
+            # Format the datetime as "YYMMDD-HHMMSS"
+            formatted_string = now.strftime("%y%m%d-%H%M%S") + " "
+
+            filename = file_folder.joinpath(formatted_string + "-" + self.url_to_filename(current_url))
             # Writing JSON data
             with open(str(filename) + ".json", 'w') as f:
                 json.dump(content, f)
