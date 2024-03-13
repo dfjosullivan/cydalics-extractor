@@ -2,6 +2,7 @@ import logging
 import re
 import shutil
 import urllib
+from datetime import datetime
 from pathlib import Path
 
 import scrapy
@@ -98,43 +99,62 @@ class LinkDownloaderSpider(scrapy.Spider):
 
             return result
 
-        def extract_content(response):
+        def extract_content(response, current_section = None):
             try:
-                root = []
-                current_hierarchy = {0: root}  # Maps header levels to their respective nodes
+                sections = []
+                extracted_elements = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p']
+                for element in soup.body.find_all(recursive=False):
+                    if len(element.get_text(strip=True)) > 50:
+                        extracted_elements.append(element.name)
+                        print(f"Found a long element: {element.name}")
+                        #print(element.get_text(strip=True))
 
-                for element in response.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p'], recursive=True):
-                    content = {'content': element.get_text(strip=True), 'children': []}
+                for element in response.find_all(extracted_elements, recursive=True):
                     if element.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
-                        level = int(element.name[1])
-                        current_node = current_hierarchy[level - 1]  # Get the parent node
-                        current_node.append(content)  # Append the current content to the parent node
-                        current_hierarchy[level] = content['children']  # Update the current level's node
+                        header_level = int(element.name[1])
+                        new_section = {"header": element.get_text(),
+                                       "level": header_level,
+                                       "content": "",
+                                       "subsections": []}
+
+                        if current_section is None:
+                            sections.append(new_section)
+                        else:
+                            current_level = current_section["level"]
+                            if header_level > current_level:
+                                current_section["subsections"].append(new_section)
+                            else:
+                                sections.append(new_section)
+
+                        current_section = new_section
+                        if len(list(element.children)) > 0:
+                            current_section["subsections"] = extract_content(element, current_section)
+
                     elif element.name == 'p':
-                        current_hierarchy[max(current_hierarchy.keys())].append(
-                            content)  # Append paragraph to the nearest header
+                        if current_section is not None:
+                            current_section["content"] += element.get_text() + " "
+                        else:
+                            self.logger.info("Ignore text " + element.get_text())
+                    else:
+                        if current_section is not None:
+                            current_section["content"] += element.get_text() + " "
 
-                nested_dict = build_nested_dict(root)
-
-                return nested_dict
+                return sections
             except Exception as e:
                 self.logger.exception(e)
-                return []
+
+
 
         if soup.body is None or soup.body.children is None:
             self.logger.info("No children found")
-            return {}
+            return []
 
-
+        content = []
         for child in soup.body.children:
-            if child.name in ['main']:
-                content = extract_content(child)
-                return content
-            if child.name in ['header']:
-                content = extract_content(child)
-                return content
+            if not isinstance(child, str):
+                content = content + extract_content(child)
 
-        return []
+        return content
 
     def is_url_in_list(self, url):
         url_parts = urllib.parse.urlparse(url)
@@ -242,10 +262,17 @@ class LinkDownloaderSpider(scrapy.Spider):
                 self.logger.info("Skipping " + current_url + " no data ")
                 return
 
+            # Get the current UTC datetime
+            current_utc_datetime = datetime.utcnow()
+
+            # Format the datetime object as a string
+            timestamp_string = current_utc_datetime.strftime('%Y-%m-%d %H:%M:%S')
+
             content = {}
             content["content"] = html_content
             content["file_type"] = file_type
             content["url"] = current_url
+            content["extraction_timestamp_utc"] = timestamp_string
             # Save the PDF file
             file_folder = self.get_file_folder()
 
@@ -273,6 +300,7 @@ class LinkDownloaderSpider(scrapy.Spider):
             self.save_pdf(response)
 
         elif file_type == 'HTML':
+            self.logger.info(current_url)
             self.save_html(response, current_url, file_type)
 
             # Follow links within the same domain only, respecting the depth limit
