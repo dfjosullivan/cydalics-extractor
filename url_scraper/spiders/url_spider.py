@@ -317,7 +317,7 @@ class LinkDownloaderSpider(scrapy.Spider):
 
             # Follow links within the same domain only, respecting the depth limit
             soup = BeautifulSoup(response.text, 'html.parser')
-            if depth > 1:
+            if depth > 2:
                 return
             for a in soup.find_all('a', href=True):
                 link = a['href']
